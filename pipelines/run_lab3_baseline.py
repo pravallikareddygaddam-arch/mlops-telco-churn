@@ -1,26 +1,33 @@
 import subprocess
 import sys
 
-def execute_pipeline():
-    print("[INFO] =========================================")
-    print("[INFO] Starting Lab 3: Baseline ML Pipeline")
-    print("[INFO] =========================================")
-    
-    scripts = [
-        "src/preprocess.py",
-        "src/train.py",
-        "src/evaluate.py"
-    ]
-    
-    for script in scripts:
-        print(f"\n[INFO] ---> Executing {script}...")
-        result = subprocess.run([sys.executable, script])
-        
-        if result.returncode != 0:
-            print(f"[ERROR] Pipeline halted. {script} failed with exit code {result.returncode}.")
-            sys.exit(1)
-            
-    print("\n[SUCCESS] Lab 3 Pipeline fully executed!")
+
+def run_script(script_path):
+    print(f"\nRunning {script_path}...")
+    subprocess.run(
+        [sys.executable, script_path],
+        check=True
+    )
+
+
+def main():
+    print("=" * 50)
+    print("LAB 3 - BASELINE MLOPS PIPELINE")
+    print("=" * 50)
+
+    # Step 1: Preprocessing
+    run_script("src/preprocess.py")
+
+    # Step 2: Model Training
+    run_script("src/train.py")
+
+    # Step 3: Model Evaluation
+    run_script("src/evaluate.py")
+
+    print("\n" + "=" * 50)
+    print("LAB 3 BASELINE PIPELINE COMPLETED SUCCESSFULLY!")
+    print("=" * 50)
+
 
 if __name__ == "__main__":
-    execute_pipeline()
+    main()
