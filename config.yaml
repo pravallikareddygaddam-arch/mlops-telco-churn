@@ -1,0 +1,42 @@
+project:
+  name: "Telco Customer Churn Prediction"
+  version: "1.0"
+
+data:
+  raw_path: "data/raw/churn.csv"
+  processed_dir: "data/processed"
+  target_column: "Churn"
+  id_column: "customerID"
+
+split:
+  test_size: 0.2
+  random_state: 42
+
+model:
+  n_estimators: 100
+  max_depth: 10
+  random_state: 42
+  class_weight: "balanced"
+
+mlflow:
+  tracking_uri: "sqlite:///mlflow.db"
+  experiment_name: "Telco_Churn_MLOps"
+
+registry:
+  model_name: "TelcoChurnModel"
+  decision_metric: "f1_score"
+
+quality_gate:
+  metric: "f1_score"
+  minimum_value: 0.50
+
+paths:
+  model: "models/churn_model.pkl"
+  preprocessor: "models/preprocessor.pkl"
+  evaluation_report: "reports/model_evaluation_report.json"
+  quality_gate_report: "reports/quality_gate_report.json"
+  failure_report: "reports/lab9_failure_handling_report.json"
+  inference_output: "outputs/production_predictions.csv"
+
+lab9:
+  repetitions: 1
