@@ -1,70 +1,28 @@
-\# Lab 8 – Continuous Integration Report
+# Lab 8 – Continuous Integration Report
 
+## Objective
+To implement Continuous Integration for the Churn Prediction MLOps pipeline using GitHub Actions.
 
+## Workflow
+File: `.github/workflows/lab8_ci.yml`
 
-\## Objective
+Triggers:
+- Push to `main` or `master`
+- Pull requests
+- Manual workflow dispatch
 
+## CI Environment
+- Ubuntu latest
+- Python 3.11
+- GitHub Actions checkout and Python setup
+- Dependencies installed from `requirements.txt`
 
+## Execution
+The workflow runs:
 
-Implement Continuous Integration for the Churn Prediction MLOps pipeline using GitHub Actions.
+```bash
+python src/mlops_pipeline/churn_prediction_pipeline.py
+```
 
-
-
-\## Workflow
-
-
-
-The CI workflow is located at:
-
-
-
-.github/workflows/lab8\_ci.yml
-
-
-
-The workflow is configured to run for:
-
-
-
-\- Pushes to main
-
-\- Pushes to master
-
-\- Pull requests
-
-\- Manual workflow dispatch
-
-
-
-\## CI Environment
-
-
-
-The workflow uses:
-
-
-
-\- Ubuntu latest runner
-
-\- Python 3.11
-
-\- Repository checkout using actions/checkout
-
-\- Python setup using actions/setup-python
-
-\- Dependencies installed from requirements.txt
-
-
-
-\## Pipeline Execution
-
-
-
-The CI workflow executes:
-
-
-
-```powershell
-
-python src/mlops\_pipeline/churn\_prediction\_pipeline.py
-
+## Result
+The CI workflow is configured to automate pipeline execution. Successful completion must be confirmed from the GitHub Actions run.
