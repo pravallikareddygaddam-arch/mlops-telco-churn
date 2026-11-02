@@ -1,4 +1,5 @@
-name: Lab 9 - Failure and Recovery Tests
+
+name: Lab 10 - Failure and Recovery Tests
 
 on:
   workflow_dispatch:
@@ -6,8 +7,10 @@ on:
 jobs:
   failure-tests:
     runs-on: ubuntu-latest
+
     env:
       MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,14 +26,14 @@ jobs:
       - name: Build the normal MLOps pipeline
         run: python src/mlops_pipeline/churn_prediction_pipeline.py
 
-      - name: Run Lab 9 failure and recovery tests
+      - name: Run Lab 10 failure and recovery tests
         run: python src/mlops_pipeline/10_failure_injection.py
 
-      - name: Upload Lab 9 evidence
+      - name: Upload Lab 10 evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lab9-failure-tests-${{ github.run_number }}
+          name: lab10-failure-tests-${{ github.run_number }}
           path: |
             reports/**
             artifacts/**
