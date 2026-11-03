@@ -9,18 +9,16 @@ from pathlib import Path
 import joblib
 import mlflow
 import mlflow.sklearn
+from mlflow.tracking import MlflowClient
 import numpy as np
 import pandas as pd
 import yaml
 
 
-# Project root
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
-# Configure MLflow
 def configure_mlflow(config):
-
     tracking_uri = (
         os.getenv("MLFLOW_TRACKING_URI")
         or config["mlflow"].get("tracking_uri")
@@ -30,9 +28,7 @@ def configure_mlflow(config):
         mlflow.set_tracking_uri(tracking_uri)
 
 
-# Execute project scripts
 def run_script(script_path):
-
     script = PROJECT_ROOT / script_path
 
     result = subprocess.run(
@@ -43,89 +39,70 @@ def run_script(script_path):
     return result.returncode
 
 
-# Restore original files
 def restore_file(backup_path, original_path):
-
     if os.path.exists(original_path):
         os.remove(original_path)
 
     os.replace(backup_path, original_path)
 
 
-# ==========================================================
+def make_result(scenario, expected, actual, passed, **extra):
+    result = {
+        "scenario": scenario,
+        "expected": expected,
+        "actual": actual,
+        "passed": passed
+    }
+    result.update(extra)
+    return result
+
+
 # SCENARIO 1: MISSING DATA
-# ==========================================================
 
 def test_missing_data(config):
-
     print("\n[LAB 10] Scenario 1: Missing data")
 
     data_path = PROJECT_ROOT / config["data"]["raw_path"]
-
-    backup_path = Path(
-        str(data_path) + ".lab10_backup"
-    )
+    backup_path = Path(str(data_path) + ".lab10_backup")
 
     if not data_path.exists():
-
-        print("[ERROR] Dataset not found.")
-
-        return {
-            "scenario": "missing_data",
-            "expected": "HALT",
-            "actual": "NOT_TESTED",
-            "passed": False
-        }
+        return make_result(
+            "missing_data", "HALT", "NOT_TESTED", False
+        )
 
     os.replace(data_path, backup_path)
 
     try:
-
         exit_code = run_script(
             "src/mlops_pipeline/02_validate_data.py"
         )
 
         passed = exit_code != 0
 
-        return {
-            "scenario": "missing_data",
-            "expected": "HALT",
-            "actual": "HALT" if passed else "CONTINUED",
-            "passed": passed
-        }
-
-    finally:
-
-        restore_file(
-            backup_path,
-            data_path
+        return make_result(
+            "missing_data",
+            "HALT",
+            "HALT" if passed else "CONTINUED",
+            passed
         )
+    finally:
+        restore_file(backup_path, data_path)
 
 
-# ==========================================================
 # SCENARIO 2: INVALID DATATYPE
-# ==========================================================
 
 def test_invalid_datatype(config):
-
     print("\n[LAB 10] Scenario 2: Invalid datatype")
 
     data_path = PROJECT_ROOT / config["data"]["raw_path"]
-
-    backup_path = Path(
-        str(data_path) + ".lab10_backup"
-    )
+    backup_path = Path(str(data_path) + ".lab10_backup")
 
     shutil.copy2(data_path, backup_path)
 
     try:
-
         df = pd.read_csv(data_path)
 
-        df["MonthlyCharges"] = (
-            df["MonthlyCharges"].astype(object)
-        )
-
+        df["MonthlyCharges"] = df["MonthlyCharges"].astype(object)
         df.loc[0, "MonthlyCharges"] = "INVALID_NUMBER"
 
         df.to_csv(data_path, index=False)
@@ -136,43 +113,30 @@ def test_invalid_datatype(config):
 
         passed = exit_code != 0
 
-        return {
-            "scenario": "invalid_datatype",
-            "expected": "HALT",
-            "actual": "HALT" if passed else "CONTINUED",
-            "passed": passed
-        }
-
-    finally:
-
-        restore_file(
-            backup_path,
-            data_path
+        return make_result(
+            "invalid_datatype",
+            "HALT",
+            "HALT" if passed else "CONTINUED",
+            passed
         )
+    finally:
+        restore_file(backup_path, data_path)
 
 
-# ==========================================================
 # SCENARIO 3: SCHEMA MISMATCH
-# ==========================================================
 
 def test_schema_mismatch(config):
-
     print("\n[LAB 10] Scenario 3: Schema mismatch")
 
     data_path = PROJECT_ROOT / config["data"]["raw_path"]
-
-    backup_path = Path(
-        str(data_path) + ".lab10_backup"
-    )
+    backup_path = Path(str(data_path) + ".lab10_backup")
 
     shutil.copy2(data_path, backup_path)
 
     try:
-
         df = pd.read_csv(data_path)
 
         df = df.drop(columns=["Contract"])
-
         df.to_csv(data_path, index=False)
 
         exit_code = run_script(
@@ -181,58 +145,40 @@ def test_schema_mismatch(config):
 
         passed = exit_code != 0
 
-        return {
-            "scenario": "schema_mismatch",
-            "expected": "HALT",
-            "actual": "HALT" if passed else "CONTINUED",
-            "passed": passed
-        }
-
-    finally:
-
-        restore_file(
-            backup_path,
-            data_path
+        return make_result(
+            "schema_mismatch",
+            "HALT",
+            "HALT" if passed else "CONTINUED",
+            passed
         )
+    finally:
+        restore_file(backup_path, data_path)
 
 
-# ==========================================================
 # SCENARIO 4: PREPROCESSING INCONSISTENCY
-# ==========================================================
 
 def test_preprocessing_inconsistency(config):
-
     print("\n[LAB 10] Scenario 4: Preprocessing inconsistency")
 
     processed_dir = PROJECT_ROOT / config["data"]["processed_dir"]
+    data_path = processed_dir / "X_train_final.npy"
+    backup_path = Path(str(data_path) + ".lab10_backup")
 
-    path = processed_dir / "X_train_final.npy"
+    if not data_path.exists():
+        return make_result(
+            "preprocessing_inconsistency",
+            "HALT",
+            "NOT_TESTED",
+            False
+        )
 
-    backup_path = Path(
-        str(path) + ".lab10_backup"
-    )
-
-    if not path.exists():
-
-        print("[ERROR] Processed training data not found.")
-
-        return {
-            "scenario": "preprocessing_inconsistency",
-            "expected": "HALT",
-            "actual": "NOT_TESTED",
-            "passed": False
-        }
-
-    shutil.copy2(path, backup_path)
+    shutil.copy2(data_path, backup_path)
 
     try:
+        X_train = np.load(data_path)
 
-        X_train = np.load(path)
-
-        # Inject NaN to simulate preprocessing failure
         X_train[0, 0] = np.nan
-
-        np.save(path, X_train)
+        np.save(data_path, X_train)
 
         exit_code = run_script(
             "src/mlops_pipeline/04_validate_outputs.py"
@@ -240,59 +186,38 @@ def test_preprocessing_inconsistency(config):
 
         passed = exit_code != 0
 
-        return {
-            "scenario": "preprocessing_inconsistency",
-            "expected": "HALT",
-            "actual": "HALT" if passed else "CONTINUED",
-            "passed": passed
-        }
-
-    finally:
-
-        restore_file(
-            backup_path,
-            path
+        return make_result(
+            "preprocessing_inconsistency",
+            "HALT",
+            "HALT" if passed else "CONTINUED",
+            passed
         )
+    finally:
+        restore_file(backup_path, data_path)
 
 
-# ==========================================================
-# SCENARIO 5: MISSING MODEL + RECOVERY FROM MLFLOW
-# ==========================================================
+# SCENARIO 5: MISSING MODEL AND RECOVERY
 
 def test_missing_model_with_recovery(config):
-
-    print(
-        "\n[LAB 10] Scenario 5: "
-        "Missing model artifact + recovery"
-    )
+    print("\n[LAB 10] Scenario 5: Missing model and recovery")
 
     model_path = PROJECT_ROOT / config["paths"]["model"]
-
     model_name = config["registry"]["model_name"]
 
     if not model_path.exists():
+        return make_result(
+            "missing_model_artifact",
+            "RECOVER",
+            "NOT_TESTED",
+            False
+        )
 
-        print("[ERROR] Local model is missing.")
-
-        return {
-            "scenario": "missing_model_artifact",
-            "expected": "RECOVER",
-            "actual": "NOT_TESTED",
-            "passed": False
-        }
-
-    backup_path = Path(
-        str(model_path) + ".lab10_backup"
-    )
-
+    backup_path = Path(str(model_path) + ".lab10_backup")
     shutil.copy2(model_path, backup_path)
 
     os.remove(model_path)
 
     try:
-
-        # Step 1: Detect missing model
-
         print("[INFO] Checking missing model detection...")
 
         failure_exit_code = run_script(
@@ -301,104 +226,92 @@ def test_missing_model_with_recovery(config):
 
         failure_detected = failure_exit_code != 0
 
-        # Step 2: Configure MLflow
-
         configure_mlflow(config)
 
-        # Step 3: Load registered model version 4
-        # Version 4 was registered using Pickle serialization.
+        print("[INFO] Searching MLflow model registry...")
 
-        model_uri = f"models:/{model_name}/4"
+        client = MlflowClient()
 
-        print(
-            f"[INFO] Recovering model from {model_uri}..."
+        versions = client.search_model_versions(
+            f"name='{model_name}'"
         )
 
-        production_model = mlflow.sklearn.load_model(
-            model_uri
+        if not versions:
+            raise RuntimeError(
+                f"No registered versions found for {model_name}"
+            )
+
+        latest_version = max(
+            versions,
+            key=lambda version: int(version.version)
         )
 
-        # Step 4: Restore local model
+        model_uri = (
+            f"models:/{model_name}/{latest_version.version}"
+        )
+
+        print(f"[INFO] Loading model: {model_uri}")
+
+        recovered_model = mlflow.sklearn.load_model(model_uri)
 
         model_path.parent.mkdir(
             parents=True,
             exist_ok=True
         )
 
-        joblib.dump(
-            production_model,
-            model_path
-        )
+        joblib.dump(recovered_model, model_path)
 
-        print(
-            "[SUCCESS] Model recovered from MLflow."
-        )
+        print("[SUCCESS] Model recovered from MLflow.")
 
-        # Step 5: Evaluate recovered model
-
-        print(
-            "[INFO] Evaluating recovered model..."
-        )
+        print("[INFO] Evaluating recovered model...")
 
         recovery_exit_code = run_script(
             "src/mlops_pipeline/06_model_evaluation.py"
         )
 
         recovered = recovery_exit_code == 0
-
         passed = failure_detected and recovered
 
-        return {
-            "scenario": "missing_model_artifact",
-            "expected": "RECOVER",
-            "actual": (
-                "RECOVERED"
-                if passed
-                else "RECOVERY_FAILED"
-            ),
-            "failure_detected": failure_detected,
-            "recovery_succeeded": recovered,
-            "passed": passed
-        }
-
-    finally:
-
-        # Restore the original local model
-        restore_file(
-            backup_path,
-            model_path
+        return make_result(
+            "missing_model_artifact",
+            "RECOVER",
+            "RECOVERED" if passed else "RECOVERY_FAILED",
+            passed,
+            failure_detected=failure_detected,
+            recovery_succeeded=recovered,
+            recovered_model_version=latest_version.version
         )
 
+    except Exception as error:
+        print(f"[ERROR] Recovery failed: {error}")
 
-# ==========================================================
+        return make_result(
+            "missing_model_artifact",
+            "RECOVER",
+            "RECOVERY_FAILED",
+            False,
+            error=str(error)
+        )
+
+    finally:
+        restore_file(backup_path, model_path)
+
+
 # MAIN EXECUTION
-# ==========================================================
 
 def run_failure_tests():
-
-    print("[INFO] ================================================")
-
-    print(
-        "[INFO] Lab 10 Failure Handling and Recovery"
-    )
-
-    print("[INFO] ================================================")
+    print("\n==============================================")
+    print("LAB 10 - FAILURE HANDLING AND RECOVERY")
+    print("==============================================")
 
     config_path = PROJECT_ROOT / "config.yaml"
 
-    with open(
-        config_path,
-        "r",
-        encoding="utf-8"
-    ) as file:
-
+    with open(config_path, "r", encoding="utf-8") as file:
         config = yaml.safe_load(file)
 
-    repetitions = int(
-        config["lab9"]["repetitions"]
-    )
+    configure_mlflow(config)
 
-    all_runs = []
+    repetitions = int(config.get("lab9", {}).get("repetitions", 1))
 
     tests = [
         test_missing_data,
@@ -408,27 +321,28 @@ def run_failure_tests():
         test_missing_model_with_recovery
     ]
 
-    for repetition in range(
-        1,
-        repetitions + 1
-    ):
+    all_runs = []
 
-        print("\n" + "=" * 70)
+    for repetition in range(1, repetitions + 1):
+        print(f"\n[INFO] Repetition {repetition}/{repetitions}")
 
-        print(
-            f"[INFO] Lab 10 Repetition "
-            f"{repetition}/{repetitions}"
-        )
-
-        print("=" * 70)
-
-        repetition_results = []
+        results = []
 
         for test in tests:
+            try:
+                result = test(config)
+            except Exception as error:
+                print(f"[ERROR] {test.__name__}: {error}")
 
-            result = test(config)
+                result = make_result(
+                    test.__name__,
+                    "SUCCESS",
+                    "ERROR",
+                    False,
+                    error=str(error)
+                )
 
-            repetition_results.append(result)
+            results.append(result)
 
             print(
                 "[RESULT]",
@@ -436,18 +350,11 @@ def run_failure_tests():
                 "PASSED" if result["passed"] else "FAILED"
             )
 
-        all_runs.append(
-            {
-                "repetition": repetition,
-                "results": repetition_results,
-                "passed": all(
-                    item["passed"]
-                    for item in repetition_results
-                )
-            }
-        )
-
-    # Generate final report
+        all_runs.append({
+            "repetition": repetition,
+            "results": results,
+            "passed": all(item["passed"] for item in results)
+        })
 
     report = {
         "stage": "Lab 10 Failure Handling and Recovery",
@@ -455,10 +362,7 @@ def run_failure_tests():
         "runs": all_runs,
         "overall_status": (
             "PASSED"
-            if all(
-                run["passed"]
-                for run in all_runs
-            )
+            if all(run["passed"] for run in all_runs)
             else "FAILED"
         )
     }
@@ -467,52 +371,19 @@ def run_failure_tests():
         PROJECT_ROOT / config["paths"]["failure_report"]
     )
 
-    report_path.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+    report_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(
-        report_path,
-        "w",
-        encoding="utf-8"
-    ) as file:
+    with open(report_path, "w", encoding="utf-8") as file:
+        json.dump(report, file, indent=4)
 
-        json.dump(
-            report,
-            file,
-            indent=4
-        )
+    print("\n==============================================")
+    print("LAB 10 FINAL STATUS:", report["overall_status"])
+    print("Report saved:", report_path)
+    print("==============================================")
 
-    # Display final result
-
-    if report["overall_status"] == "PASSED":
-
-        print(
-            "\n[SUCCESS] All Lab 10 scenarios PASSED."
-        )
-
-        print(
-            f"[INFO] Report saved to {report_path}"
-        )
-
-        return True
-
-    print(
-        "\n[ERROR] One or more Lab 10 scenarios FAILED."
-    )
-
-    print(
-        f"[INFO] Report saved to {report_path}"
-    )
-
-    return False
+    return report["overall_status"] == "PASSED"
 
 
 if __name__ == "__main__":
-
-    passed = run_failure_tests()
-
-    sys.exit(
-        0 if passed else 1
-    )
+    success = run_failure_tests()
+    sys.exit(0 if success else 1)
