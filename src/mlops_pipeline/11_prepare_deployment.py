@@ -38,44 +38,43 @@ def configure_mlflow(config):
     print("[INFO] MLflow Tracking URI:", tracking_uri)
 
 
-def get_latest_registered_model(client, model_name):
+def get_production_model(client, model_name):
+    print(f"[INFO] Searching Production model: {model_name}")
 
-    print(f"[INFO] Searching registered model: {model_name}")
-
-    try:
-        versions = list(
-            client.search_model_versions(
-                f"name='{model_name}'"
-            )
+    versions = list(
+        client.search_model_versions(
+            f"name='{model_name}'"
         )
+    )
 
-        if not versions:
-            raise RuntimeError(
-                f"No registered versions found for {model_name}"
-            )
+    production_models = [
+        version
+        for version in versions
+        if version.current_stage == "Production"
+    ]
 
-        latest_version = max(
-            versions,
-            key=lambda version: int(version.version)
-        )
-
-        print(
-            f"[SUCCESS] Latest registered version: "
-            f"{latest_version.version}"
-        )
-
-        return latest_version
-
-    except Exception as error:
+    if not production_models:
         raise RuntimeError(
-            f"Could not find registered model '{model_name}': {error}"
+            f"No Production model found for {model_name}. "
+            "Run the model lifecycle manager first."
         )
+
+    production_model = max(
+        production_models,
+        key=lambda version: int(version.version)
+    )
+
+    print(
+        "[SUCCESS] Production model version:",
+        production_model.version
+    )
+
+    return production_model
 
 
 def prepare_deployment():
-
     print("=" * 60)
-    print("LAB 11 - PREPARE DEPLOYMENT")
+    print("LAB 11 - PREPARE PRODUCTION DEPLOYMENT")
     print("=" * 60)
 
     # Step 1: Load configuration
@@ -86,50 +85,43 @@ def prepare_deployment():
 
     client = MlflowClient()
 
-    # Step 3: Read registered model name from config
+    # Step 3: Get registered model name
     model_name = config["registry"]["model_name"]
 
-    # Step 4: Find latest registered model version
-    model_version = get_latest_registered_model(
+    # Step 4: Select the actual Production model
+    model_version = get_production_model(
         client,
         model_name
     )
+
+    model_stage = model_version.current_stage
+    run_id = model_version.run_id
 
     model_uri = (
         f"models:/{model_name}/{model_version.version}"
     )
 
     print("[INFO] Model URI:", model_uri)
+    print("[INFO] Model stage:", model_stage)
+    print("[INFO] Run ID:", run_id)
 
-    # Step 5: Load model from MLflow
-    print("[INFO] Loading registered model...")
+    # Step 5: Load Production model
+    print("[INFO] Loading Production model...")
 
     model = mlflow.sklearn.load_model(model_uri)
 
-    print("[SUCCESS] Registered model loaded.")
+    print("[SUCCESS] Production model loaded.")
 
     # Step 6: Create deployment directory
     deployment_dir = PROJECT_ROOT / "deployment"
+    deployment_dir.mkdir(parents=True, exist_ok=True)
 
-    deployment_dir.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+    # Step 7: Save model
+    model_path = deployment_dir / "model.pkl"
 
-    # Step 7: Save deployment model
-    deployment_model_path = (
-        deployment_dir / "model.pkl"
-    )
+    joblib.dump(model, model_path)
 
-    joblib.dump(
-        model,
-        deployment_model_path
-    )
-
-    print(
-        "[SUCCESS] Model saved:",
-        deployment_model_path
-    )
+    print("[SUCCESS] Model saved:", model_path)
 
     # Step 8: Copy preprocessor
     preprocessor_source = (
@@ -158,6 +150,8 @@ def prepare_deployment():
         "project_version": config["project"]["version"],
         "model_name": model_name,
         "model_version": str(model_version.version),
+        "model_stage": model_stage,
+        "run_id": run_id,
         "model_source": model_uri,
         "deployment_status": "READY",
         "created_at": datetime.now(
@@ -167,33 +161,25 @@ def prepare_deployment():
         "preprocessor_file": "preprocessor.pkl"
     }
 
-    metadata_path = (
-        deployment_dir / "model_metadata.json"
-    )
+    metadata_path = deployment_dir / "model_metadata.json"
 
     with open(
         metadata_path,
         "w",
         encoding="utf-8"
     ) as file:
-
-        json.dump(
-            metadata,
-            file,
-            indent=4
-        )
+        json.dump(metadata, file, indent=4)
 
     print("[SUCCESS] Deployment metadata saved.")
 
     # Step 10: Verify deployment artifacts
     required_files = [
-        deployment_model_path,
+        model_path,
         preprocessor_destination,
         metadata_path
     ]
 
     for file_path in required_files:
-
         if not file_path.exists():
             raise FileNotFoundError(
                 f"Deployment artifact missing: {file_path}"
@@ -201,13 +187,12 @@ def prepare_deployment():
 
         print("[VERIFIED]", file_path.relative_to(PROJECT_ROOT))
 
-    print("\n" + "=" * 60)
-    print("LAB 11 DEPLOYMENT PREPARATION PASSED!")
+    print("=" * 60)
+    print("[SUCCESS] PRODUCTION DEPLOYMENT PREPARATION PASSED!")
     print("=" * 60)
 
 
 if __name__ == "__main__":
-
     try:
         prepare_deployment()
 

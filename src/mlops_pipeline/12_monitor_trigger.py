@@ -17,7 +17,7 @@ DATA_LOAD_REPORT = Path("artifacts/data_load_report.json")
 
 
 def run_drift_analysis():
-    print("[INFO] Running drift analysis...")
+    print("[INFO] Running drift ana lysis...")
     result = subprocess.run([sys.executable, str(DRIFT_SCRIPT)])
     return result.returncode == 0
 
