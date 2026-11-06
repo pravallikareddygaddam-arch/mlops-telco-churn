@@ -27,6 +27,14 @@ jobs:
           .\.venv\Scripts\python.exe -m pip install --upgrade pip
           .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
+      - name: Generate Lab 12 drift reports
+        shell: powershell
+        run: |
+          Set-Location $env:GITHUB_WORKSPACE
+          .\.venv\Scripts\python.exe .\src\mlops_pipeline\12_data_drift.py
+          .\.venv\Scripts\python.exe .\src\mlops_pipeline\12_concept_drift.py
+          .\.venv\Scripts\python.exe .\src\mlops_pipeline\12_prediction_drift.py
+
       - name: Run MLOps monitoring trigger
         shell: powershell
         run: |
