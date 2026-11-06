@@ -1,0 +1,46 @@
+
+name: Lab 12 - Model Monitoring
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/mlops_pipeline/12_*.py"
+      - ".github/workflows/lab12_monitoring.yml"
+
+jobs:
+  model-monitoring:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate monitoring scripts
+        run: |
+          python -m compileall -q src/mlops_pipeline
+
+      - name: Show available monitoring scripts
+        run: |
+          ls src/mlops_pipeline/12_*.py
+
+      - name: Upload monitoring outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab12-monitoring-results
+          path: |
+            outputs/monitoring/
+            reports/
+          if-no-files-found: warn
